@@ -20,6 +20,7 @@ import argparse
 import os
 import sys
 import warnings
+import datetime
 
 from tensorflow import keras
 import tensorflow as tf
@@ -207,7 +208,7 @@ def create_callbacks(model, training_model, prediction_model, validation_generat
     if args.evaluation and validation_generator:
         callbacks.append(keras.callbacks.EarlyStopping(
             monitor    = 'mAP',
-            patience   = 5,
+            patience   = 200,
             mode       = 'max',
             min_delta  = 0.01
         ))
@@ -435,7 +436,8 @@ def parse_args(args):
     parser.add_argument('--lr',               help='Learning rate.', type=float, default=1e-5)
     parser.add_argument('--optimizer-clipnorm', help='Clipnorm parameter for  optimizer.', type=float, default=0.001)
     parser.add_argument('--snapshot-path',    help='Path to store snapshots of models during training (defaults to \'./snapshots\')', default='./snapshots')
-    parser.add_argument('--tensorboard-dir',  help='Log directory for Tensorboard output', default='')  # default='./logs') => https://github.com/tensorflow/tensorflow/pull/34870
+    parser.add_argument('--logs-dir',         help='Log directory', default='./logs')  # default='./logs') => https://github.com/tensorflow/tensorflow/pull/34870
+    parser.add_argument('--tensorboard-dir',  help='Log directory for Tensorboard output', default='boards')  # default='./logs') => https://github.com/tensorflow/tensorflow/pull/34870
     parser.add_argument('--tensorboard-freq', help='Update frequency for Tensorboard output. Values \'epoch\', \'batch\' or int', default='epoch')
     parser.add_argument('--no-snapshots',     help='Disable saving snapshots.', dest='snapshots', action='store_false')
     parser.add_argument('--no-evaluation',    help='Disable per epoch evaluation.', dest='evaluation', action='store_false')
@@ -464,6 +466,9 @@ def main(args=None):
     if args is None:
         args = sys.argv[1:]
     args = parse_args(args)
+    nowtime = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+    args.tensorboard_dir = os.path.join(args.logs_dir, args.backbone, nowtime, args.tensorboard_dir)
+    args.snapshot_path   = os.path.join(args.logs_dir, args.backbone, nowtime, args.snapshot_path)
 
     # create object that stores backbone information
     backbone = models.backbone(args.backbone)

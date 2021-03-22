@@ -76,6 +76,8 @@ def _get_detections(generator, model, score_threshold=0.05, max_detections=100, 
 
     for i in progressbar.progressbar(range(generator.size()), prefix='Running network: '):
         raw_image    = generator.load_image(i)
+        image_name   = os.path.basename(generator.image_names[i]).split('.')[0]
+
         image, scale = generator.resize_image(raw_image.copy())
         image = generator.preprocess_image(image)
 
@@ -106,10 +108,18 @@ def _get_detections(generator, model, score_threshold=0.05, max_detections=100, 
         image_detections = np.concatenate([image_boxes, np.expand_dims(image_scores, axis=1), np.expand_dims(image_labels, axis=1)], axis=1)
 
         if save_path is not None:
-            draw_annotations(raw_image, generator.load_annotations(i), label_to_name=generator.label_to_name)
-            draw_detections(raw_image, image_boxes, image_scores, image_labels, label_to_name=generator.label_to_name, score_threshold=score_threshold)
+            cv_image = pil2cv(raw_image)
+            draw_annotations(cv_image, generator.load_annotations(i), label_to_name=generator.label_to_name)
+            draw_detections(cv_image, image_boxes, image_scores, image_labels, label_to_name=generator.label_to_name, score_threshold=score_threshold)
 
-            cv2.imwrite(os.path.join(save_path, '{}.png'.format(i)), raw_image)
+            cv2.imwrite(os.path.join(save_path, '{}.png'.format(image_name)), cv_image)
+            
+            with open(os.path.join(save_path, '{}.txt'.format(image_name)), mode='w') as fp:
+                stxt=[]
+                for label, score, box in zip(image_labels, image_scores, image_boxes):
+                    stxt.append('{} {} {} {} {} {}\n'.format(label, score, int(box[0]), int(box[1]), int(box[2]), int(box[3])))
+                fp.writelines(stxt)
+
 
         # copy detections to all_detections
         for label in range(generator.num_classes()):
@@ -242,3 +252,14 @@ def evaluate(
     inference_time = np.sum(all_inferences) / generator.size()
 
     return average_precisions, inference_time
+
+def pil2cv(image):
+    ''' PIL型 -> OpenCV型 '''
+    new_image = np.array(image, dtype=np.uint8)
+    #if new_image.ndim == 2:  # モノクロ
+    #    pass
+    #elif new_image.shape[2] == 3:  # カラー
+    #    new_image = cv2.cvtColor(new_image, cv2.COLOR_RGB2BGR)
+    #elif new_image.shape[2] == 4:  # 透過
+    #    new_image = cv2.cvtColor(new_image, cv2.COLOR_RGBA2BGRA)
+    return new_image
